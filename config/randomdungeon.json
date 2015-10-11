@@ -1,0 +1,11 @@
+{
+  "items": {
+    "Enemy LV":{"bbox": [361,200,150,54], "type": "int"},
+  	"Size": {"bbox": [235,326,434,56], "type":"String"},
+  	"Floor Number": {"bbox": [385,262,127,55], "type":"string"},
+  	"Number of Enemies": {"bbox": [471,388,219,59], "type":"string"},
+  	"Main Enemy": {"bbox": [366,516,324,56], "type":"string"},
+  	"Main Object": {"bbox": [525,578,163,59], "type":"string"},
+  	"EXP": {"bbox": [929,480,80,36], "type":"string"}
+  }
+}

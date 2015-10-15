@@ -6,12 +6,6 @@ from PIL import ImageFilter
 from PIL import Image
 
 class GameScraper:
-    conditions = {
-    "EQUAL": "==",
-    "NOT EQUAL":"!=",
-    "LESS THAN": "<",
-    "GREATER THAN": ">"
-    }
     def __init__(self, ScrapeLocJSON, Scenario):
         """
         Initiates a new GameScraper instance
@@ -65,9 +59,9 @@ class GameScraper:
 
         for i, item in enumerate(self.scenario.items):
             # Push the the needed items into itemsNeeded
-            itemsNeeded.update({item: self.allItems[item]})
+            itemsNeeded[item] = None
             # We need some place to keep the value of these items
-            itemsNeeded[item]["value"] = None
+            #itemsNeeded[item]["value"] = None
 
             if i != 0:
                 sys.stdout.write(", ")
@@ -96,12 +90,13 @@ class GameScraper:
         image = ImageGrab.grab().convert("L")
 
         images = []
-        for key, item in self.items.iteritems():
+        for key in self.items.iterkeys():
+            bbox = self.allItems[key]["bbox"]
             # Now we crop the parts of the screen we're scraping from
             images.append(
-            (key, image.crop(item["bbox"]) \
+            (key, image.crop(bbox) \
             # As well as clean them up and scale
-            .resize(((item["bbox"][2] - item["bbox"][0]) * self.scale, (item["bbox"][3] - item["bbox"][1]) * self.scale), Image.ANTIALIAS) \
+            .resize(((bbox[2] - bbox[0]) * self.scale, (bbox[3] - bbox[1]) * self.scale), Image.ANTIALIAS) \
             .filter(self._filter)))
 
             images[len(images) - 1][1].save(key + ".png")
@@ -118,23 +113,24 @@ class GameScraper:
         for entry in item_images:
             key = entry[0]
             image = entry[1]
+            _type = self.allItems[key]["type"]
 
             #Run each image through tesseract OCR to get a string representation of that image
-            self.items[key]["value"] = pytesseract.image_to_string(image)
+            self.items[key] = pytesseract.image_to_string(image)
             #Stop there if the type of the item is string but otherwise we have more
             #parsing to do
-            if self.items[key]["type"] != "String":
-                self.items[key]["value"] = self.scenario.parse(self.items[key])
-            print key + "\t" + str(self.items[key]["value"])
+            if _type != "String":
+                self.items[key] = self.scenario.parse(self.items[key], _type)
+            print key + "\t" + str(self.items[key])
 
     def validate(self):
         return self.scenario.validate(self.items)
 
 def _smallandfew(items):
-    return items["Size"]["value"] == "Small" and items["Number of Enemies"]["value"] == "Few"
+    return items["Size"] == "Small" and items["Number of Enemies"] == "Few"
 
 def _levelover7000(items):
-    return items["Enemy LV"]["value"] > 7000 and items["Main Object"]["value"] == "Grass"
+    return items["Enemy LV"] > 7000 and items["Main Object"] == "Grass"
 
 if __name__ == "__main__":
     from Scenario import Scenario

@@ -17,8 +17,8 @@ class Scenario(object):
     "string": parseString,
     }
 
-    def parse(self, item):
-        return self.types[item["type"]](item["value"])
+    def parse(self, item, _type):
+        return self.types[_type](item)
 
     def validate(self, items):
         print("No validation function defined returning false")

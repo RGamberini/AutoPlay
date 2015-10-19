@@ -12,12 +12,12 @@ if __name__ == "__main__":
     import time
 
     smallandfew = Scenario(("Number of Enemies", "Size"), _smallandfew)
-    levelover7000 = Scenario(("Enemy LV", "Main Object"), _levelover7000)
+    levelover7000 = Scenario(("Enemy LV", "Size", "Floor Number","Main Object", "Number of Enemies", "Main Enemy", "EXP"), _levelover7000)
 
     gameScraper = GameScraper("randomdungeon", levelover7000)
-    gameScraper.scrape()
-    while not gameScraper.validate():
+    for i in xrange(50):
+        gameScraper.scrape()
         dolphininput.tap(dolphininput.B, .1)
         time.sleep(.1)
-    	dolphininput.tap(dolphininput.A, .1)
-        gameScraper.scrape()
+        dolphininput.tap(dolphininput.A, .1)
+        gameScraper.exit()

@@ -1,6 +1,9 @@
 import json
 import pytesseract
 import sys
+import hashlib
+import csv
+import os
 from PIL import ImageGrab
 from PIL import ImageFilter
 from PIL import Image
@@ -15,10 +18,13 @@ class GameScraper:
 
         Scenario is the circumstances underwhich we want the bot to stop
         """
+        self.config_home = "config\\" + ScrapeLocJSON + "\\"
+        self.illegal_chars = ("/", ":", "*", "?", ",", "<", ">")
 
+        self.md5 = hashlib.md5()
         # Opening the file and testing for valid input
         try:
-            with open("config\\" + ScrapeLocJSON, "r") as infile:
+            with open(self.config_home + ScrapeLocJSON + ".json", "r") as infile:
                 # Locations to scrape from
                 self.blob = json.load(infile)
 
@@ -27,8 +33,18 @@ class GameScraper:
                 self.allItems = self.blob["items"]
 
                 # We need to convert all the bounding boxes into a format usable by PIL
-                for item in self.allItems.itervalues():
+                for key, item in self.allItems.iteritems():
                     item["bbox"] = self.makeBox(*item["bbox"])
+                    #Hashmap creation
+                    #The hashmap exists so that we can further refine the results of Tesseract OCR image translation
+                    hashmap_path = self.config_home + key + ".map"
+                    if (os.path.isfile(hashmap_path)):
+                        with open(hashmap_path, 'rb') as csvfile:
+                            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+                            item["hashmap"] = dict((rows[0],rows[1]) for rows in reader)
+                    else:
+                        item["hashmap"] = {}
+
 
                 self.changeScenario(Scenario)
         except IOError:
@@ -76,6 +92,11 @@ class GameScraper:
         """
     	return (left, top, left+width, top+height)
 
+    def sanitize(self, strin):
+        for illegalchar in self.illegal_chars:
+            strin = strin.replace(illegalchar, '_')
+        return strin
+
     def capture(self):
         """
         This function captures the portions of screen dictated in the config
@@ -99,26 +120,34 @@ class GameScraper:
             .resize(((bbox[2] - bbox[0]) * self.scale, (bbox[3] - bbox[1]) * self.scale), Image.ANTIALIAS) \
             .filter(self._filter)))
 
-            images[len(images) - 1][1].save(key + ".png")
+            #images[len(images) - 1][1].save(key + ".png")
         # Each entry in images is a tuple with the name of the item and the it's captured image
         return images
 
     def scrape(self):
         """
         This function converts captured images into text
-
-        TODO: Implement database of image hashes
         """
         item_images = self.capture()
         for entry in item_images:
             key = entry[0]
             image = entry[1]
             _type = self.allItems[key]["type"]
+            _hash = hashlib.md5(image.tobytes()).hexdigest()
+            _map = self.allItems[key]["hashmap"]
 
-            #Run each image through tesseract OCR to get a string representation of that image
-            self.items[key] = pytesseract.image_to_string(image)
-            #Stop there if the type of the item is string but otherwise we have more
-            #parsing to do
+            #If the hash of this image does not already exist use Tesseract OCR to give us a first guess
+            if _hash not in _map:
+                #Run each image through tesseract OCR to get a string representation of that image
+                _map[_hash] = pytesseract.image_to_string(image)
+            self.items[key] = _map[_hash]
+
+            ###DEBUG
+            image.save(self.config_home + "DEBUG\\" + self.sanitize(self.items[key]) + _hash + ".png")
+            ###END DEBUG
+
+
+            #Stop there if the type of the item is string but otherwise we have more parsing to do
             if _type != "String":
                 self.items[key] = self.scenario.parse(self.items[key], _type)
             print key + "\t" + str(self.items[key])
@@ -126,24 +155,13 @@ class GameScraper:
     def validate(self):
         return self.scenario.validate(self.items)
 
-def _smallandfew(items):
-    return items["Size"] == "Small" and items["Number of Enemies"] == "Few"
-
-def _levelover7000(items):
-    return items["Enemy LV"] > 7000 and items["Main Object"] == "Grass"
-
-if __name__ == "__main__":
-    from Scenario import Scenario
-    import dolphininput
-    import time
-
-    smallandfew = Scenario(("Number of Enemies", "Size"), _smallandfew)
-    levelover7000 = Scenario(("Enemy LV", "Main Object"), _levelover7000)
-
-    gameScraper = GameScraper("randomdungeon.json", levelover7000)
-    gameScraper.scrape()
-    while not gameScraper.validate():
-        dolphininput.tap(dolphininput.B, .1)
-        time.sleep(.1)
-    	dolphininput.tap(dolphininput.A, .1)
-        gameScraper.scrape()
+    #Safe exit saves our hashes
+    def exit(self):
+        for key, item in self.allItems.iteritems():
+            item = self.allItems[key]
+            if len(item["hashmap"]) > 0:
+                hashmap_path = self.config_home + key + ".map"
+                with open(hashmap_path, 'wb') as csvfile:
+                    writer = csv.writer(csvfile)
+                    for _key, value in item["hashmap"].iteritems():
+                        writer.writerow([_key, value])

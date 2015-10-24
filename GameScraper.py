@@ -1,7 +1,7 @@
 import json
 import pytesseract
 import sys
-import hashlib
+import imagehash
 import csv
 import os
 from PIL import ImageGrab
@@ -19,9 +19,9 @@ class GameScraper:
         Scenario is the circumstances underwhich we want the bot to stop
         """
         self.config_home = "config\\" + ScrapeLocJSON + "\\"
-        self.illegal_chars = ("/", ":", "*", "?", ",", "<", ">")
+        self.illegal_chars = ("/", ":", "*", "?", ",", "<", ">", "|")
 
-        self.md5 = hashlib.md5()
+        #self.md5 = hashlib.md5()
         # Opening the file and testing for valid input
         try:
             with open(self.config_home + ScrapeLocJSON + ".json", "r") as infile:
@@ -133,7 +133,8 @@ class GameScraper:
             key = entry[0]
             image = entry[1]
             _type = self.allItems[key]["type"]
-            _hash = hashlib.md5(image.tobytes()).hexdigest()
+            #_hash = hashlib.md5(image.tobytes()).hexdigest()
+            _hash = imagehash.dhash(image)
             _map = self.allItems[key]["hashmap"]
 
             #If the hash of this image does not already exist use Tesseract OCR to give us a first guess
@@ -143,7 +144,7 @@ class GameScraper:
             self.items[key] = _map[_hash]
 
             ###DEBUG
-            image.save(self.config_home + "DEBUG\\" + self.sanitize(self.items[key]) + _hash + ".png")
+            image.save(self.config_home + "DEBUG\\" + str(key) + " " + (self.sanitize(self.items[key]) + " " + str(_hash)).replace("\\", "") + ".png")
             ###END DEBUG
 
 
@@ -158,7 +159,6 @@ class GameScraper:
     #Safe exit saves our hashes
     def exit(self):
         for key, item in self.allItems.iteritems():
-            item = self.allItems[key]
             if len(item["hashmap"]) > 0:
                 hashmap_path = self.config_home + key + ".map"
                 with open(hashmap_path, 'wb') as csvfile:

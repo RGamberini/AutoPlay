@@ -1,3 +1,4 @@
 *.png
 out.txt
 *.pyc
+*.map

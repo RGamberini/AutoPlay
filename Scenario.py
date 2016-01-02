@@ -1,8 +1,9 @@
 class Scenario(object):
     """A basic Scenario for GameScraper"""
-    def __init__(self, items, validateFunction, types=None):
-        self.validate = validateFunction
+    def __init__(self, items, validateFunction=None, types=None):
         self.items = items
+        if validateFunction is not None:
+            self.validate = validateFunction
         if types is not None:
             self.types.update(types)
 

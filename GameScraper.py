@@ -21,10 +21,12 @@ class GameScraper:
         self.config_home = "config\\" + ScrapeLocJSON + "\\"
         self.illegal_chars = ("/", ":", "*", "?", ",", "<", ">", "|")
 
+        ScrapeLocJSON = self.config_home + ScrapeLocJSON + ".json"
+
         #self.md5 = hashlib.md5()
         # Opening the file and testing for valid input
         try:
-            with open(self.config_home + ScrapeLocJSON + ".json", "r") as infile:
+            with open(ScrapeLocJSON, "r") as infile:
                 # Locations to scrape from
                 self.blob = json.load(infile)
 
@@ -35,20 +37,17 @@ class GameScraper:
                 # We need to convert all the bounding boxes into a format usable by PIL
                 for key, item in self.allItems.iteritems():
                     item["bbox"] = self.makeBox(*item["bbox"])
+
                     #Hashmap creation
                     #The hashmap exists so that we can further refine the results of Tesseract OCR image translation
-                    hashmap_path = self.config_home + key + ".map"
-                    if (os.path.isfile(hashmap_path)):
-                        with open(hashmap_path, 'rb') as csvfile:
-                            reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-                            item["hashmap"] = dict((rows[0],rows[1]) for rows in reader)
-                    else:
-                        item["hashmap"] = {}
-
+                    self.createHashmap(key)
+                    ### DEBUG
+                    print self.allItems[key]["hashmap"]
 
                 self.changeScenario(Scenario)
         except IOError:
-            print 'oops!'
+            print ScrapeLocJSON + " either could not be found or is invalid!"
+            raise
 
     """
     Some configuration, may need to be tweaked in indidual scenarios however
@@ -71,7 +70,7 @@ class GameScraper:
         self.scenario = Scenario
 
         # Let the user know whats going on
-        sys.stdout.write("Scraping for the following items: ")
+        sys.stdout.write("New scenario scraping for the following items: ")
 
         for i, item in enumerate(self.scenario.items):
             # Push the the needed items into itemsNeeded
@@ -79,11 +78,25 @@ class GameScraper:
             # We need some place to keep the value of these items
             #itemsNeeded[item]["value"] = None
 
+            # Print out what we're scraping
             if i != 0:
                 sys.stdout.write(", ")
             sys.stdout.write(item)
         print ""
         self.items = itemsNeeded
+
+    def createHashmap(self, key):
+        """
+        Contains the method for checking if a hashmap already exists and if not
+        create a new one
+        """
+        hashmap_path = self.config_home + key + ".map"
+        if (os.path.isfile(hashmap_path)):
+            with open(hashmap_path, 'rb') as csvfile:
+                reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+                self.allItems[key]["hashmap"] = dict((rows[0],rows[1]) for rows in reader)
+        else:
+            self.allItems[key]["hashmap"] = {}
 
     def makeBox(self,left,top,width,height):
         """
@@ -134,7 +147,7 @@ class GameScraper:
             image = entry[1]
             _type = self.allItems[key]["type"]
             #_hash = hashlib.md5(image.tobytes()).hexdigest()
-            _hash = imagehash.dhash(image)
+            _hash = str(imagehash.dhash(image))
             _map = self.allItems[key]["hashmap"]
 
             #If the hash of this image does not already exist use Tesseract OCR to give us a first guess
